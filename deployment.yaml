@@ -1,0 +1,4 @@
+ModelName: dummy-model
+ModelVersion: "1.0"
+BaseImage: seldonio/seldon-core-s2i-python3:0.3
+ClassName: Endpoint
