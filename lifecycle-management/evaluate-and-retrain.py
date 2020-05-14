@@ -6,7 +6,7 @@ from sklearn.neighbors import KNeighborsClassifier
 
 # -- read model object and data
 model = pickle.load(open("argo-demo/serialized/dummy_model.pkl", 'rb'))
-data = pd.DataFrame.from_csv('argo-demo/lifecycle-management/data/data.csv')
+data = pd.read_csv('argo-demo/lifecycle-management/data/data.csv')
 new_data = data.tail(100)
 X_test, y_test = new_data[['x', 'y']], new_data['label']
 
