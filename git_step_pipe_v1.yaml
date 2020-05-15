@@ -1,0 +1,84 @@
+name: "step-pipe-v1"
+schedule: "30 13 03 03 2"
+enabled: true
+
+workflow:
+    spec:
+       entrypoint: retrain-monitor
+       volumeClaimTemplates:
+         - metadata:
+             name: workdir
+           spec: 
+             accessModes: ["ReadWriteOnce"]
+             resources:
+               requests:
+                 storage: 2Gi
+                 
+       # This spec contains two templates: retrain-monitor and run-python, the former specifying the dag and the former doing the work.
+       templates:
+       - name: retrain-monitor
+         # Instead of just running a container
+         # This template has a sequence of steps
+         steps:
+         - - name: initialize            # data-ingest is run before the following steps
+             template: initialize        # the template clones the appropriate git repo in this example
+             arguments:
+               parameters:
+               - name: repo
+                 value: "https://github.com/zer0x42/argo-demo.git"
+               
+         - - name: evaluate-update       # double dash => run after previous step, removes the nessecity for DAG dependencies
+             template: evaluate-update
+             
+       # container templates used to execute each step
+       - name: initialize
+         inputs:
+           parameters:
+           - name: repo
+         container:
+           image: python:3.7
+           command: [sh, -c]
+           args: ["git clone {{inputs.parameters.repo}} && cd argo-demo && ls -la"]
+           volumeMounts:
+             - name: workdir
+               mountPath: /mnt/src
+           workingDir: /mnt/src
+           
+       - name: evaluate-update
+         steps:
+         - - name: evaluate-retrain
+             template: evaluate-retrain
+         - - name: update-keep
+             template: update-keep
+         
+       - name: evaluate-retrain
+         container:
+           image: python:3.7
+           command: [sh, -c]
+           args: ["
+           pip3 install -r argo-demo/requirements.txt && 
+           python3 argo-demo/lifecycle-management/data-ingest.py &&
+           python3 argo-demo/lifecycle-management/evaluate-and-retrain.py
+           "]
+           volumeMounts:
+             - name: workdir
+               mountPath: /mnt/src
+           workingDir: /mnt/src
+           
+       - name: update-keep
+         container:
+           image: python:3.7
+           command: [sh, -c]
+           args: ["
+           cd argo-demo &&
+           git config --global user.email 'mcnielsen4270@gmail.com' &&
+           git config --global user.name 'zer0x42' &&
+           git status &&
+           git add -u && 
+           git commit -m 'retraining update' &&
+           git status
+           "]
+           volumeMounts:
+             - name: workdir
+               mountPath: /mnt/src
+           workingDir: /mnt/src
